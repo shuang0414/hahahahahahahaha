@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑色背景噴漆塗鴉工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Segoe UI', 'Microsoft JhengHei', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: crosshair;
+        }
+        /* 設定為純黑色背景 */
+        #graffitiCanvas {
+            box-shadow: 0 0 30px rgba(255,255,255,0.05);
+            max-width: 95%;
+            max-height: 90%;
+            background-color: #000000;
+            border: 1px solid #333;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 26, 26, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 100;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(26, 26, 26, 0.9);
+            padding: 12px 20px;
+            border-radius: 12px;
+            color: white;
+            z-index: 100;
+            border-left: 4px solid #ffffff;
+        }
+        .tool-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            color: white;
+            font-size: 12px;
+        }
+        input[type="color"] {
+            border: none;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            background: none;
+        }
+        button {
+            transition: all 0.2s;
+        }
+        button:hover {
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body>
+
+<div class="info-panel">
+    <h3 class="font-bold text-lg">隨意塗鴉區</h3>
+</div>
+
+<div id="canvas-container">
+    <canvas id="graffitiCanvas"></canvas>
+</div>
+
+<div class="controls">
+    <div class="tool-group">
+        <label>噴漆顏色</label>
+        <input type="color" id="sprayColor" value="#00ffcc">
+    </div>
+
+    <div class="tool-group">
+        <label>噴頭大小</label>
+        <input type="range" id="spraySize" min="10" max="150" value="60">
+    </div>
+
+    <div class="tool-group">
+        <label>噴漆壓力</label>
+        <input type="range" id="sprayDensity" min="10" max="150" value="80">
+    </div>
+
+    <div class="flex gap-2 ml-4">
+        <button onclick="clearCanvas()" class="bg-zinc-700 text-white px-5 py-2 rounded-full font-bold text-sm hover:bg-red-900">清除畫布</button>
+        <button onclick="downloadCanvas()" class="bg-white text-black px-5 py-2 rounded-full font-bold text-sm hover:bg-slate-200">儲存作品</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('graffitiCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let painting = false;
+    let colorInput = document.getElementById('sprayColor');
+    let sizeInput = document.getElementById('spraySize');
+    let densityInput = document.getElementById('sprayDensity');
+
+    function initCanvas() {
+        // 設置畫布大小
+        canvas.width = window.innerWidth * 0.95;
+        canvas.height = window.innerHeight * 0.9;
+        
+        // 初始填充黑色背景，這樣存檔時才會有背景色
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function startPosition(e) {
+        painting = true;
+        draw(e);
+    }
+
+    function finishedPosition() {
+        painting = false;
+        ctx.beginPath();
+    }
+
+    function draw(e) {
+        if (!painting) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        
+        const radius = sizeInput.value / 2;
+        const density = densityInput.value;
+        const color = colorInput.value;
+
+        ctx.fillStyle = color;
+
+        // 噴漆模擬效果
+        for (let i = 0; i < density; i++) {
+            const offset = getRandomOffset(radius);
+            const dotX = x + offset.x;
+            const dotY = y + offset.y;
+            
+            const dist = Math.sqrt(offset.x*offset.x + offset.y*offset.y);
+            const ratio = 1 - (dist / radius);
+            const opacity = Math.random() * ratio * 0.7; // 稍微增加黑色背景下的不透明度
+            
+            ctx.globalAlpha = opacity;
+            const dotSize = Math.random() * 2.5 + 0.5;
+            
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+    }
+
+    function getRandomOffset(radius) {
+        let x, y;
+        do {
+            x = (Math.random() * 2 - 1) * radius;
+            y = (Math.random() * 2 - 1) * radius;
+        } while (x * x + y * y > radius * radius);
+        return { x, y };
+    }
+
+    function clearCanvas() {
+        if(confirm('確定要清除所有塗鴉嗎？')) {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    function downloadCanvas() {
+        const link = document.createElement('a');
+        link.download = `dark-graffiti-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    // 事件監聽
+    canvas.addEventListener('mousedown', startPosition);
+    window.addEventListener('mouseup', finishedPosition);
+    canvas.addEventListener('mousemove', draw);
+    
+    // 行動端支援
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startPosition(e); }, { passive: false });
+    window.addEventListener('touchend', finishedPosition);
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, { passive: false });
+
+    window.addEventListener('resize', initCanvas);
+    window.onload = initCanvas;
+</script>
+
+</body>
+</html>
